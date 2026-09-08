@@ -3,23 +3,8 @@
 A retro 80s (synthwave) terminal dashboard for metering your **OpenRouter**
 credit and token consumption — live.
 
-```
- ⚡ TOKENMETER ▞▞▞▞▞▞ OPENROUTER RADAR                     [r] refresh  [q] quit
-┌─ ⚡ CREDITS LEFT ───────────────────────┐┌─ BALANCE ──────────────────────────┐
-│               _______                  ││       $33.11  REMAINING            │
-│           ⢀⣠⣤⣴⣶⣶⣶⣶⣤⣤⣀                  ││                                    │
-│        ⢀⣤⣾⣿⣿⣿⣿⠿⠿⠿⢿⣿⣿⣿⣿⣦⣄              ││ spent $16.89 (33.8%)               │
-│      ⣴⣿⣿⣿⠟⠋⠁      ⠉⠛⢿⣿⣿⣷⡄             ││ total $50.00 (key limit)           │
-│     ⣿⣿⣿⠁        66%    ⢹⣿⣿⡇            ││                                    │
-│      ⠈⢿⣿⣿⣆⣀⣀⣀⣀⣴⣿⣿⣿⠏                 │└────────────────────────────────────┘
-│         credits left $33.11            │┌─ USAGE ────────────────────────────┐
-└────────────────────────────────────────┘│ TODAY       │ ALL TIME             │
-┌─ 7-DAY SPEND $ ─────────────────────────│ $1.58       │ $16.74               │
-│ ▄▄ ▅▅ ▄▄ ▇▇ ▄▄ ██ ▄▄                    │ ≈820.0K     │ ≈12.5M tokens        │
-│ We Th Fr Sa Su Mo Tu                    │└────────────────────────────────────┘
-└─────────────────────────────────────────┘
- ● SYNCED 18:16:05 · next poll in 27s · "my-laptop" key limit
-```
+<img width="974" height="661" alt="image" src="https://github.com/user-attachments/assets/6069d6cb-7adc-404d-8fe4-ef1040ad86d3" />
+
 
 ## Features
 
