@@ -1,0 +1,23 @@
+{
+  "name": "tokenmeter",
+  "version": "0.1.0",
+  "description": "Retro 80s terminal dashboard for OpenRouter credit & token usage",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "tokenmeter": "./bin/tokenmeter.js"
+  },
+  "scripts": {
+    "start": "node bin/tokenmeter.js",
+    "demo": "node bin/tokenmeter.js --demo",
+    "once": "node bin/tokenmeter.js --demo --once",
+    "test": "node scripts/smoke.mjs && node scripts/tui-test.mjs && node scripts/wizard-test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "blessed-contrib": "^4.11.0"
+  }
+}
