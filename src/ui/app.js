@@ -87,8 +87,11 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
     });
 
     // ── pie chart: single ring, spent = magenta ring, remaining = mint arc ──
+    // No '⚡' in the label: terminals with emoji presentation render it two
+    // columns wide while blessed counts one, shifting the border right until
+    // it overwrites this panel's corner and the neighbour's.
     const donut = grid.set(1, 0, 23, 7, contrib.donut, {
-      label: ' ⚡ CREDITS LEFT ',
+      label: ' CREDITS LEFT ',
       radius: 36,
       arcWidth: 30,
       remainColor: rgb.spent,
