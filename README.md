@@ -3,8 +3,7 @@
 A retro 80s (synthwave) terminal dashboard for metering your **OpenRouter**
 credit and token consumption — live.
 
-<img width="974" height="661" alt="image" src="https://github.com/user-attachments/assets/6069d6cb-7adc-404d-8fe4-ef1040ad86d3" />
-
+<img width="968" height="749" alt="image" src="https://github.com/user-attachments/assets/e8da3e14-f9f8-4cfa-8905-caa122a4f1ba" />
 
 
 ## Features
