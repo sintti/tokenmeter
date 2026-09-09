@@ -143,8 +143,13 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
     let paused = false;
 
     function renderHeader() {
+      // 'TOKENMETER' cycles neon yellow -> red -> green, one colour per letter
+      const cycle = [theme.text, theme.alert, theme.remaining];
+      const name = [...'TOKENMETER']
+        .map((ch, i) => `{${cycle[i % cycle.length]}-fg}${ch}{/}`)
+        .join('');
       header.setContent(
-        ` {bold}{${theme.text}-fg}⚡ TOKENMETER{/} ` +
+        ` {bold}{${theme.text}-fg}⚡{/} ${name} ` +
         `{${theme.spent}-fg}▞▞▞{/}{${theme.accent}-fg}▞▞▞{/} ` +
         `{${theme.dim}-fg}OPENROUTER RADAR{/}`
       );
