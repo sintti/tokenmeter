@@ -98,7 +98,7 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
       fill: rgb.text,
       spacing: 1,
       yPadding: 2,
-      style: { bg: theme.panel },
+      style: { bg: theme.panel, label: { fg: theme.text, bg: theme.panel } },
       border: { type: 'line', fg: theme.border }
     });
 
