@@ -67,9 +67,7 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
     const grid = new contrib.grid({ rows: 30, cols: 12, screen, hideBorder: true });
 
     // ── header ──────────────────────────────────────────────────────────────
-    // Two grid rows tall: the title sits on the first, the second is an
-    // empty spacer that pushes the panels below down a little.
-    const header = grid.set(0, 0, 2, 12, blessed.box, {
+    const header = grid.set(0, 0, 1, 12, blessed.box, {
       tags: true,
       style: { bg: theme.bg }
     });
@@ -92,7 +90,7 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
     // No '⚡' in the label: terminals with emoji presentation render it two
     // columns wide while blessed counts one, shifting the border right until
     // it overwrites this panel's corner and the neighbour's.
-    const donut = grid.set(2, 0, 22, 7, contrib.donut, {
+    const donut = grid.set(1, 0, 23, 7, contrib.donut, {
       label: ' CREDITS LEFT ',
       radius: 36,
       arcWidth: 30,
@@ -105,14 +103,14 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
     });
 
     // ── big remaining number ───────────────────────────────────────────────
-    const credits = grid.set(2, 7, 11, 5, blessed.box, {
+    const credits = grid.set(1, 7, 11, 5, blessed.box, {
       ...boxStyle(),
       label: ' BALANCE ',
       valign: 'center'
     });
 
     // ── today / all-time stats ─────────────────────────────────────────────
-    const stats = grid.set(13, 7, 11, 5, blessed.box, {
+    const stats = grid.set(12, 7, 12, 5, blessed.box, {
       ...boxStyle(),
       label: ' USAGE ',
       valign: 'center'
@@ -131,6 +129,17 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
       tags: true,
       style: { bg: theme.bg }
     });
+
+    // Drop the three upper panels one row below the header. The gap row is
+    // left uncovered, so it keeps the terminal's own background instead of
+    // extending the header bar. Donut and USAGE give up one row of height
+    // (BALANCE keeps its full height) so the bottom sections stay anchored.
+    // The grid resolves percentage positions into row/column numbers, so a
+    // plain +1 shifts exactly one row.
+    for (const [el, shrink] of [[donut, true], [credits, false], [stats, true]]) {
+      el.top += 1;
+      if (shrink) el.height -= 1;
+    }
 
     // ── state ──────────────────────────────────────────────────────────────
     const baseDelay = Math.max(10, cfg.pollIntervalSeconds) * 1000;
