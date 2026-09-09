@@ -6,6 +6,7 @@ credit and token consumption — live.
 <img width="974" height="661" alt="image" src="https://github.com/user-attachments/assets/6069d6cb-7adc-404d-8fe4-ef1040ad86d3" />
 
 
+
 ## Features
 
 - **Live credit balance** — polls OpenRouter and shows remaining credits in a
@@ -84,6 +85,7 @@ tokenmeter --key KEY    API key for this session (not saved)
 |---|---|
 | `q` / `Esc` / `Ctrl-C` | quit |
 | `r` | force refresh now |
+| `p` | pause / resume polling (resuming refreshes straight away) |
 
 ## Notes
 

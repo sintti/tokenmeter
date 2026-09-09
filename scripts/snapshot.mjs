@@ -4,8 +4,8 @@ import { startDashboard } from '../src/ui/app.js';
 import { createMeter } from '../src/meter.js';
 import { buildDemoStack } from '../src/demo.js';
 
-const COLS = 110;
-const ROWS = 30;
+const COLS = Number(process.argv[2]) || 110;
+const ROWS = Number(process.argv[3]) || 30;
 const chunks = [];
 const onData = (c) => chunks.push(c);
 const out = new PassThrough();
@@ -45,7 +45,14 @@ for (const m of f.matchAll(/\x1b\[(\d+);(\d+)H/g)) {
 // crude reconstruct: walk the stream simulating cursor position
 let r = 0, c = 0;
 const grid = Array.from({ length: ROWS }, () => new Array(COLS).fill(' '));
-const re = /\x1b\[([0-9;?]*)([a-zA-Z])|\x1b\][^\x07]*\x07|(\r|\n)|([^\x1b\r\n]+)/g;
+// DEC special-graphics set: blessed draws borders with ESC(0 ... ESC(B
+const DEC = {
+  q: '─', x: '│', l: '┌', k: '┐', m: '└', j: '┘',
+  t: '├', u: '┤', w: '┬', v: '┴', n: '┼', '`': '◆',
+  a: '▒', f: '°', g: '±', '~': '·', o: '⎺', s: '⎽'
+};
+let g0 = 'B';
+const re = /\x1b\[([0-9;?]*)([a-zA-Z])|\x1b\][^\x07]*\x07|\x1b\(([0-9A-Za-z])|(\r|\n)|([^\x1b\r\n]+)/g;
 let m;
 while ((m = re.exec(f))) {
   if (m[1] !== undefined) {
@@ -61,12 +68,16 @@ while ((m = re.exec(f))) {
       case 'D': c -= params[0] || 1; break;
     }
   } else if (m[3]) {
-    if (m[3] === '\n') { r++; c = 0; } else { r = 0; c = 0; }
+    g0 = m[3];
   } else if (m[4]) {
-    for (const ch of m[4]) {
-      if (r >= 0 && r < ROWS && c >= 0 && c < COLS) grid[r][c] = ch;
+    if (m[4] === '\n') { r++; c = 0; } else { r = 0; c = 0; }
+  } else if (m[5]) {
+    for (const ch of m[5]) {
+      const g = g0 === '0' ? (DEC[ch] || ch) : ch;
+      if (r >= 0 && r < ROWS && c >= 0 && c < COLS) grid[r][c] = g;
       c++;
     }
   }
 }
+
 console.log(grid.map((row) => row.join('')).join('\n'));

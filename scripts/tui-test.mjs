@@ -1,6 +1,7 @@
 // Integration test: runs the real dashboard with a fake TTY sized like a
-// real terminal, lets the poll loop tick with demo data, presses 'q',
-// and asserts the rendered frames contain the expected panels.
+// real terminal, lets the poll loop tick with demo data, toggles the pause
+// hotkey, presses 'q', and asserts the rendered frames contain the expected
+// panels and hotkey states.
 import { PassThrough } from 'node:stream';
 import { startDashboard, sparkBars } from '../src/ui/app.js';
 import { createMeter } from '../src/meter.js';
@@ -43,7 +44,9 @@ const done = startDashboard({
   output: out
 });
 
-// let two poll cycles run, then quit
+// let a poll cycle run, pause, resume, then quit
+setTimeout(() => inp.write('p'), 2000);
+setTimeout(() => inp.write('p'), 3000);
 setTimeout(() => inp.write('q'), 4500);
 await done;
 
@@ -51,10 +54,20 @@ const frame = Buffer.concat(chunks).toString('utf8');
 // blessed diff-renders with cursor-move escapes between words, so compare
 // on letters/digits only
 const norm = frame.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-const checks = ['TOKENMETER', 'CREDITSLEFT', 'BALANCE', 'USAGE', 'SPEND', 'SYNCED', 'DEMOKEY'];
+const checks = [
+  'TOKENMETER', 'CREDITSLEFT', 'BALANCE', 'USAGE', 'SPEND', 'SYNCED', 'DEMOKEY',
+  'RREFRESH', 'PPAUSE', 'QQUIT',  // hotkey row, in order
+  'PAUSED', 'PRESUME'             // shown while the poll loop is suspended
+];
 const missing = checks.filter((c) => !norm.includes(c));
 if (missing.length) {
   console.error('MISSING IN RENDER:', missing.join(', '));
+  process.exit(1);
+}
+// the hotkeys must read left to right as refresh, pause, quit
+const order = ['RREFRESH', 'PPAUSE', 'QQUIT'].map((k) => norm.indexOf(k));
+if (order.some((i, n) => n > 0 && i < order[n - 1])) {
+  console.error('HOTKEYS OUT OF ORDER:', order.join(' '));
   process.exit(1);
 }
 console.log('rendered panels:', checks.join(', '));

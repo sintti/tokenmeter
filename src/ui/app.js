@@ -3,6 +3,7 @@ import contrib from 'blessed-contrib';
 import { theme, boxStyle, rgb } from '../theme.js';
 import { todayStats, last7 } from '../meter.js';
 import { fmtMoney, fmtTokens, fmtPct, clamp } from '../util.js';
+import { bigLines, FONT } from './bigfont.js';
 
 const BLOCKS = '▁▂▃▄▅▆▇█';
 
@@ -16,6 +17,27 @@ function padCenter(s, w) {
   const left = Math.max(0, Math.floor((w - s.length) / 2));
   const right = Math.max(0, w - s.length - left);
   return ' '.repeat(left) + s + ' '.repeat(right);
+}
+
+// One horizontally centred, colour-tagged line.
+function line(s, w, tag = '') {
+  return tag ? `${tag}${padCenter(s, w)}{/}` : padCenter(s, w);
+}
+
+// Pads `lines` with blank rows so the block sits in the middle of a box
+// `h` rows tall (blessed's own valign does not apply to tagged content).
+function vCenter(lines, h) {
+  const top = Math.max(0, Math.floor((h - lines.length) / 2));
+  return new Array(top).fill('').concat(lines);
+}
+
+// Block-glyph rows for `text`, or null when they would not fit `w`. One
+// column is left free: blessed wraps a line whose visible width exactly
+// equals the box width (its wrap loop then backs up to the previous
+// space), which would drop the last glyph onto its own row.
+function bigMoney(text, w) {
+  const rows = bigLines(text);
+  return rows && rows[0].length <= w - 1 ? rows : null;
 }
 
 // Bars stretch to fill `innerWidth` (default keeps the compact 2-char look).
@@ -49,11 +71,17 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
       tags: true,
       style: { bg: theme.bg }
     });
+    // Hotkey row. Both the box and the pause label are sized to the longer
+    // of the two pause states: a shrink-to-fit box anchored right resizes and
+    // shifts when '[p] pause' becomes '[p] resume', and blessed leaves stale
+    // glyphs behind when it does.
+    const PAUSE_LABELS = { running: '[p] pause', paused: '[p] resume' };
+    const PAUSE_W = Math.max(...Object.values(PAUSE_LABELS).map((k) => k.length));
     const headerRight = blessed.box({
       parent: header,
       right: 0,
       top: 0,
-      shrink: true,
+      width: `[r] refresh  ${' '.repeat(PAUSE_W)}  [q] quit `.length,
       tags: true,
       style: { bg: theme.bg }
     });
@@ -75,16 +103,14 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
     const credits = grid.set(1, 7, 11, 5, blessed.box, {
       ...boxStyle(),
       label: ' BALANCE ',
-      valign: 'center',
-      padding: { top: 1, left: 1 }
+      valign: 'center'
     });
 
     // ── today / all-time stats ─────────────────────────────────────────────
     const stats = grid.set(12, 7, 12, 5, blessed.box, {
       ...boxStyle(),
       label: ' USAGE ',
-      valign: 'center',
-      padding: { top: 1, left: 1 }
+      valign: 'center'
     });
 
     // ── 7-day trend ────────────────────────────────────────────────────────
@@ -111,6 +137,7 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
     let lastSync = null;
     let lastState = null;
     let busy = false;
+    let paused = false;
 
     function renderHeader() {
       header.setContent(
@@ -118,7 +145,13 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
         `{${theme.spent}-fg}▞▞▞{/}{${theme.accent}-fg}▞▞▞{/} ` +
         `{${theme.dim}-fg}OPENROUTER RADAR{/}`
       );
-      headerRight.setContent(`{${theme.dim}-fg}[r] refresh  [q] quit {/}`);
+      const label = (paused ? PAUSE_LABELS.paused : PAUSE_LABELS.running).padEnd(PAUSE_W);
+      const pause = paused
+        ? `{bold}{${theme.warn}-fg}${label}{/}`
+        : `{${theme.dim}-fg}${label}{/}`;
+      headerRight.setContent(
+        `{${theme.dim}-fg}[r] refresh{/}  ${pause}  {${theme.dim}-fg}[q] quit {/}`
+      );
     }
 
     // ring size that fits the actual canvas (canvas: w*2-5, h*4-12 px).
@@ -158,36 +191,82 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
     }
 
     function renderCredits(r) {
+      const w = Math.max(12, credits.width - 2);
+      const h = Math.max(1, credits.height - 2);
       if (typeof r.total !== 'number' || r.total <= 0) {
-        credits.setContent(
-          `\n{center}{${theme.warn}-fg}set a budget!{/}\n\n` +
-          `{center}usage so far {bold}${fmtMoney(r.usage)}{/}\n` +
-          `{center}{${theme.dim}-fg}edit ~/.tokenmeter/config.json{/}`
-        );
+        credits.setContent(vCenter([
+          line('set a budget!', w, `{bold}{${theme.warn}-fg}`),
+          '',
+          line(`usage so far ${fmtMoney(r.usage)}`, w, '{bold}'),
+          line('edit ~/.tokenmeter/config.json', w, `{${theme.dim}-fg}`)
+        ], h).join('\n'));
         return;
       }
       const rem = Math.max(0, r.total - r.usage);
       const pctRem = (rem / r.total) * 100;
       const low = pctRem < cfg.lowCreditPct;
       const remColor = low ? theme.alert : theme.remaining;
+      const remText = fmtMoney(rem);
       const spentPct = ((r.usage / r.total) * 100).toFixed(1);
-      credits.setContent(
-        `\n` +
-        `{center}{bold}{${remColor}-fg}${fmtMoney(rem)}{/}  {${theme.dim}-fg}REMAINING{/}\n\n` +
-        ` {${theme.spent}-fg}spent ${fmtMoney(r.usage)}{/} {${theme.dim}-fg}(${spentPct}%){/}\n` +
-        ` {${theme.accent}-fg}total ${fmtMoney(r.total)}{/} {${theme.dim}-fg}(${r.source}){/}\n` +
-        (low ? ` {bold}{${theme.alert}-fg}⚠ low credits!{/}\n` : '')
-      );
+      // REMAINING, spent, total and (when low) the warning sit under the
+      // figure. In a short panel the spacer above them goes first, so the
+      // figure keeps its block glyphs for as long as possible.
+      const tail = low ? 4 : 3;
+      const head = (FONT.rows + tail <= h && bigMoney(remText, w)) || [remText];
+      const spacer = head.length + tail + 1 <= h ? [''] : [];
+      const out = [
+        ...head.map((s) => line(s, w, `{bold}{${remColor}-fg}`)),
+        line('REMAINING', w, `{${theme.dim}-fg}`),
+        ...spacer,
+        line(`spent ${fmtMoney(r.usage)} (${spentPct}%)`, w, `{${theme.spent}-fg}`),
+        line(`total ${fmtMoney(r.total)} (${r.source})`, w, `{${theme.accent}-fg}`)
+      ];
+      if (low) out.push(line('⚠ low credits!', w, `{bold}{${theme.alert}-fg}`));
+      credits.setContent(vCenter(out, h).join('\n'));
     }
 
+    // Two centred columns (today | all time) split by a 1-char divider. Both
+    // sides pick the same glyph size, so one wide figure drops both to plain
+    // text rather than leaving the panel half-drawn.
     function renderStats() {
       const t = todayStats(history);
       const o = history.overall;
-      stats.setContent(
-        `{${theme.accent}-fg}TODAY{/}       {${theme.dim}-fg}│{/}  {${theme.border}-fg}ALL TIME{/}\n` +
-        `${fmtMoney(t.spend).padEnd(14)}{${theme.dim}-fg}│{/}  ${fmtMoney(o.spend)}\n` +
-        `{${theme.dim}-fg}≈{/}${fmtTokens(t.tokensEst).padEnd(13)}{${theme.dim}-fg}│{/}  {${theme.dim}-fg}≈{/}${fmtTokens(o.tokensEst)} tokens\n`
+      const w = Math.max(20, stats.width - 2);
+      const h = Math.max(1, stats.height - 2);
+      const colW = Math.floor((w - 1) / 2);
+      const sep = `{${theme.dim}-fg}│{/}`;
+      const row = (l, r) => l + sep + r;
+
+      const todayText = fmtMoney(t.spend);
+      const allText = fmtMoney(o.spend);
+      // the header, the spacer and the token counts take 3 rows of their own
+      const big =
+        FONT.rows + 3 <= h && bigMoney(todayText, colW) && bigMoney(allText, colW);
+      const todayRows = big ? bigMoney(todayText, colW) : [todayText];
+      const allRows = big ? bigMoney(allText, colW) : [allText];
+
+      const out = [
+        row(
+          line('TODAY', colW, `{${theme.accent}-fg}`),
+          line('ALL TIME', colW, `{${theme.border}-fg}`)
+        ),
+        ''
+      ];
+      for (let i = 0; i < todayRows.length; i++) {
+        out.push(
+          row(
+            line(todayRows[i], colW, `{bold}{${theme.accent}-fg}`),
+            line(allRows[i], colW, `{bold}{${theme.border}-fg}`)
+          )
+        );
+      }
+      out.push(
+        row(
+          line(`≈${fmtTokens(t.tokensEst)} tokens`, colW, `{${theme.dim}-fg}`),
+          line(`≈${fmtTokens(o.tokensEst)} tokens`, colW, `{${theme.dim}-fg}`)
+        )
       );
+      stats.setContent(vCenter(out, h).join('\n'));
     }
 
     function renderTrend() {
@@ -212,14 +291,21 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
     }
 
     function renderStatus() {
+      // while paused the countdown is replaced by the pause marker
+      // Plain, unbolded ASCII: blessed's cell buffer is right either way, but
+      // a bold or non-ASCII run here renders a column wider than blessed
+      // counts in some terminals, and its next absolutely-positioned run then
+      // lands on top of the last letter.
+      const cadence = paused ? `{${theme.warn}-fg}|| PAUSED{/}` : null;
       let left;
       if (offline) {
-        left = `{${theme.alert}-fg}✗ OFFLINE: ${errMsg}{/} {${theme.dim}-fg}· retry in ${nextIn}s{/}`;
+        left = `{${theme.alert}-fg}✗ OFFLINE: ${errMsg}{/} ` +
+          (cadence || `{${theme.dim}-fg}· retry in ${nextIn}s{/}`);
       } else if (lastSync) {
         left = `{${theme.remaining}-fg}● SYNCED{/} {${theme.dim}-fg}${lastSync.toTimeString().slice(0, 8)}{/} ` +
-          `{${theme.dim}-fg}· next poll in ${nextIn}s{/}`;
+          (cadence || `{${theme.dim}-fg}· next poll in ${nextIn}s{/}`);
       } else {
-        left = `{${theme.warn}-fg}◌ connecting...{/}`;
+        left = cadence || `{${theme.warn}-fg}◌ connecting...{/}`;
       }
       let low = '';
       if (lastState && typeof lastState.total === 'number' && lastState.total > 0) {
@@ -273,13 +359,14 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
         busy = false;
         nextIn = Math.round(delay / 1000);
         renderAll();
-        timer = setTimeout(tick, delay);
+        // a manual [r] refresh while paused polls once and stays paused
+        if (!paused) timer = setTimeout(tick, delay);
       }
     }
 
     // 1s ticker for the countdown in the status bar
     const ticker = setInterval(() => {
-      if (nextIn > 0) nextIn -= 1;
+      if (!paused && nextIn > 0) nextIn -= 1;
       renderStatus();
       screen.render();
     }, 1000);
@@ -296,6 +383,19 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
       delay = baseDelay;
       nextIn = 0;
       tick();
+    });
+    // [p] suspends the poll loop; resuming polls straight away rather than
+    // waiting out an interval on stale data
+    screen.key(['p', 'P'], () => {
+      paused = !paused;
+      if (paused) {
+        clearTimeout(timer);
+        renderAll();
+      } else {
+        delay = baseDelay;
+        nextIn = 0;
+        tick();
+      }
     });
 
     screen.on('resize', renderAll);
