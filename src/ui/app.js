@@ -130,16 +130,34 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
       style: { bg: theme.bg }
     });
 
-    // Drop the three upper panels one row below the header. The gap row is
-    // left uncovered, so it keeps the terminal's own background instead of
-    // extending the header bar. Donut and USAGE give up one row of height
-    // (BALANCE keeps its full height) so the bottom sections stay anchored.
-    // The grid resolves percentage positions into row/column numbers, so a
-    // plain +1 shifts exactly one row.
-    for (const [el, shrink] of [[donut, true], [credits, false], [stats, true]]) {
-      el.top += 1;
-      if (shrink) el.height -= 1;
+    // ── layout: uniform outer margins ───────────────────────────────────────
+    // One column of terminal background on the far left/right and between the
+    // two panel columns; one blank row between every stacked panel, below the
+    // header and above the status bar. The grid resolves percentage positions
+    // into plain row/column numbers, so plain arithmetic shifts exactly one
+    // unit. Gap rows/cells stay uncovered, keeping the terminal's own black.
+    donut.left += 1;
+    donut.width -= 2;
+    donut.top += 1;
+    credits.top += 1;
+    credits.width -= 1; // left edge already lands right after the gutter
+    stats.width -= 1;
+    trend.left += 1;
+    trend.width -= 2;
+    trend.top = status.top - trend.height - 1;
+    donut.height = trend.top - donut.top - 1;
+    stats.top = credits.top + credits.height + 1;
+    stats.height = trend.top - stats.top - 1;
+
+    // The donut's drawille buffer is allocated once at attach from the
+    // pre-margin grid size; its frame lines would then be wider than the
+    // shrunken content area and wrap, garbling the ring. Rebuild it at the
+    // final size (and again on terminal resize, where it went stale anyway).
+    function refitDonutCanvas() {
+      donut.calcSize();
+      donut.emit('attach'); // contrib's attach handler reallocates the buffer
     }
+    refitDonutCanvas();
 
     // ── state ──────────────────────────────────────────────────────────────
     const baseDelay = Math.max(10, cfg.pollIntervalSeconds) * 1000;
@@ -169,7 +187,8 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
     }
 
     // ring size that fits the actual canvas (canvas: w*2-5, h*4-12 px).
-    // Vertical slack (-4) keeps the in-chart label visible under the ring.
+    // Vertical slack (-8) keeps the in-chart label visible under the ring
+    // even in the short post-margin panel.
     // The arc reaches in until only a small dark hole (r=6) is left around
     // the centered percentage.
     function fitDonut() {
@@ -177,7 +196,7 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
       const r = Math.max(
         4,
         Math.min(
-          Math.floor(donut.canvasSize.height / 2 - 4),
+          Math.floor(donut.canvasSize.height / 2 - 8),
           Math.floor(donut.canvasSize.width / 2 - 2),
           39
         )
@@ -412,7 +431,10 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
       }
     });
 
-    screen.on('resize', renderAll);
+    screen.on('resize', () => {
+      refitDonutCanvas();
+      renderAll();
+    });
     renderAll();
     tick();
   });
