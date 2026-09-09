@@ -67,7 +67,9 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
     const grid = new contrib.grid({ rows: 30, cols: 12, screen, hideBorder: true });
 
     // ── header ──────────────────────────────────────────────────────────────
-    const header = grid.set(0, 0, 1, 12, blessed.box, {
+    // Two grid rows tall: the title sits on the first, the second is an
+    // empty spacer that pushes the panels below down a little.
+    const header = grid.set(0, 0, 2, 12, blessed.box, {
       tags: true,
       style: { bg: theme.bg }
     });
@@ -90,7 +92,7 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
     // No '⚡' in the label: terminals with emoji presentation render it two
     // columns wide while blessed counts one, shifting the border right until
     // it overwrites this panel's corner and the neighbour's.
-    const donut = grid.set(1, 0, 23, 7, contrib.donut, {
+    const donut = grid.set(2, 0, 22, 7, contrib.donut, {
       label: ' CREDITS LEFT ',
       radius: 36,
       arcWidth: 30,
@@ -103,14 +105,14 @@ export function startDashboard({ cfg, poll, history, saveHistory, meter, input, 
     });
 
     // ── big remaining number ───────────────────────────────────────────────
-    const credits = grid.set(1, 7, 11, 5, blessed.box, {
+    const credits = grid.set(2, 7, 11, 5, blessed.box, {
       ...boxStyle(),
       label: ' BALANCE ',
       valign: 'center'
     });
 
     // ── today / all-time stats ─────────────────────────────────────────────
-    const stats = grid.set(12, 7, 12, 5, blessed.box, {
+    const stats = grid.set(13, 7, 11, 5, blessed.box, {
       ...boxStyle(),
       label: ' USAGE ',
       valign: 'center'
